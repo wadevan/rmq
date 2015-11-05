@@ -15,21 +15,21 @@ func TestQueueSuite(t *testing.T) {
 type QueueSuite struct{}
 
 func (suite *QueueSuite) TestConnections(c *C) {
-	flushConn := OpenConnection("conns-flush", "tcp", "localhost:6379", 1)
+	flushConn, _ := OpenConnection("conns-flush", "tcp", "localhost:6379", 1)
 	flushConn.flushDb()
 	flushConn.StopHeartbeat()
 
-	connection := OpenConnection("conns-conn", "tcp", "localhost:6379", 1)
+	connection, _ := OpenConnection("conns-conn", "tcp", "localhost:6379", 1)
 	c.Assert(connection, NotNil)
 	c.Assert(NewCleaner(connection).Clean(), IsNil)
 
 	c.Check(connection.GetConnections(), HasLen, 1, Commentf("cleaner %s", connection.Name)) // cleaner connection remains
 
-	conn1 := OpenConnection("conns-conn1", "tcp", "localhost:6379", 1)
+	conn1, _ := OpenConnection("conns-conn1", "tcp", "localhost:6379", 1)
 	c.Check(connection.GetConnections(), HasLen, 2)
 	c.Check(connection.hijackConnection("nope").Check(), Equals, false)
 	c.Check(conn1.Check(), Equals, true)
-	conn2 := OpenConnection("conns-conn2", "tcp", "localhost:6379", 1)
+	conn2, _ := OpenConnection("conns-conn2", "tcp", "localhost:6379", 1)
 	c.Check(connection.GetConnections(), HasLen, 3)
 	c.Check(conn1.Check(), Equals, true)
 	c.Check(conn2.Check(), Equals, true)
@@ -49,7 +49,7 @@ func (suite *QueueSuite) TestConnections(c *C) {
 }
 
 func (suite *QueueSuite) TestConnectionQueues(c *C) {
-	connection := OpenConnection("conn-q-conn", "tcp", "localhost:6379", 1)
+	connection, _ := OpenConnection("conn-q-conn", "tcp", "localhost:6379", 1)
 	c.Assert(connection, NotNil)
 
 	connection.CloseAllQueues()
@@ -87,7 +87,7 @@ func (suite *QueueSuite) TestConnectionQueues(c *C) {
 }
 
 func (suite *QueueSuite) TestQueue(c *C) {
-	connection := OpenConnection("queue-conn", "tcp", "localhost:6379", 1)
+	connection, _ := OpenConnection("queue-conn", "tcp", "localhost:6379", 1)
 	c.Assert(connection, NotNil)
 
 	queue := connection.OpenQueue("queue-q").(*redisQueue)
@@ -124,7 +124,7 @@ func (suite *QueueSuite) TestQueue(c *C) {
 }
 
 func (suite *QueueSuite) TestConsumer(c *C) {
-	connection := OpenConnection("cons-conn", "tcp", "localhost:6379", 1)
+	connection, _ := OpenConnection("cons-conn", "tcp", "localhost:6379", 1)
 	c.Assert(connection, NotNil)
 
 	queue := connection.OpenQueue("cons-q").(*redisQueue)

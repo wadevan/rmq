@@ -77,15 +77,22 @@ func CollectStats(queueList []string, mainConnection *redisConnection) Stats {
 	stats := NewStats()
 	for _, queueName := range queueList {
 		queue := mainConnection.openQueue(queueName)
-		stats.QueueStats[queueName] = NewQueueStat(queue.ReadyCount(), queue.RejectedCount())
+		readyCount, err := queue.ReadyCount()
+		panicErr(err)
+		rejectedCount, err := queue.RejectedCount()
+		panicErr(err)
+		stats.QueueStats[queueName] = NewQueueStat(readyCount, rejectedCount)
 	}
 
-	connectionNames := mainConnection.GetConnections()
+	connectionNames, err := mainConnection.GetConnections()
+	panicErr(err)
 	for _, connectionName := range connectionNames {
 		connection := mainConnection.hijackConnection(connectionName)
-		connectionActive := connection.Check()
+		connectionActive, err := connection.Check()
+		panicErr(err)
 
-		queueNames := connection.GetConsumingQueues()
+		queueNames, err := connection.GetConsumingQueues()
+		panicErr(err)
 		if len(queueNames) == 0 {
 			stats.otherConnections[connectionName] = connectionActive
 			continue
@@ -93,14 +100,17 @@ func CollectStats(queueList []string, mainConnection *redisConnection) Stats {
 
 		for _, queueName := range queueNames {
 			queue := connection.openQueue(queueName)
-			consumers := queue.GetConsumers()
+			consumers, err := queue.GetConsumers()
+			panicErr(err)
 			openQueueStat, ok := stats.QueueStats[queueName]
 			if !ok {
 				continue
 			}
+			unackedCount, err := queue.UnackedCount()
+			panicErr(err)
 			openQueueStat.connectionStats[connectionName] = ConnectionStat{
 				active:       connectionActive,
-				unackedCount: queue.UnackedCount(),
+				unackedCount: unackedCount,
 				consumers:    consumers,
 			}
 		}

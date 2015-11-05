@@ -11,10 +11,13 @@ func NewCleaner(connection *redisConnection) *Cleaner {
 }
 
 func (cleaner *Cleaner) Clean() error {
-	connectionNames := cleaner.connection.GetConnections()
+	connectionNames, err := cleaner.connection.GetConnections()
+	panicErr(err)
 	for _, connectionName := range connectionNames {
 		connection := cleaner.connection.hijackConnection(connectionName)
-		if connection.Check() {
+		active, err := connection.Check()
+		panicErr(err)
+		if active {
 			continue // skip active connections!
 		}
 
@@ -27,17 +30,22 @@ func (cleaner *Cleaner) Clean() error {
 }
 
 func (cleaner *Cleaner) CleanConnection(connection *redisConnection) error {
-	queueNames := connection.GetConsumingQueues()
+	queueNames, err := connection.GetConsumingQueues()
+	panicErr(err)
 	for _, queueName := range queueNames {
-		queue, ok := connection.OpenQueue(queueName).(*redisQueue)
+		queue, err := connection.OpenQueue(queueName)
+		panicErr(err)
+		rQueue, ok := queue.(*redisQueue)
 		if !ok {
 			return fmt.Errorf("rmq cleaner failed to open queue %s", queueName)
 		}
 
-		cleaner.CleanQueue(queue)
+		cleaner.CleanQueue(rQueue)
 	}
 
-	if !connection.Close() {
+	ok, err := connection.Close()
+	panicErr(err)
+	if !ok {
 		return fmt.Errorf("rmq cleaner failed to close connection %s", connection)
 	}
 
@@ -50,8 +58,9 @@ func (cleaner *Cleaner) CleanConnection(connection *redisConnection) error {
 }
 
 func (cleaner *Cleaner) CleanQueue(queue *redisQueue) {
-	returned := queue.ReturnAllUnacked()
-	queue.CloseInConnection()
+	returned, err := queue.ReturnAllUnacked()
+	panicErr(err)
+	panicErr(queue.CloseInConnection())
 	_ = returned
 	// log.Printf("rmq cleaner cleaned queue %s %d", queue, returned)
 }

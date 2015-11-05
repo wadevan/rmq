@@ -7,9 +7,9 @@ import (
 
 type Delivery interface {
 	Payload() string
-	Ack() bool
-	Reject() bool
-	Push() bool
+	Ack() (ok bool, err error)
+	Reject() (ok bool, err error)
+	Push() (ok bool, err error)
 }
 
 type wrapDelivery struct {
@@ -38,22 +38,26 @@ func (delivery *wrapDelivery) Payload() string {
 	return delivery.payload
 }
 
-func (delivery *wrapDelivery) Ack() bool {
+func (delivery *wrapDelivery) Ack() (ok bool, err error) {
 	// debug(fmt.Sprintf("delivery ack %s", delivery)) // COMMENTOUT
 
 	result := delivery.redisClient.LRem(delivery.unackedKey, 1, delivery.payload)
-	if redisErrIsNil(result) {
-		return false
+	switch err := redisErr(result); err {
+	case nil:
+	case redis.Nil:
+		return false, nil
+	default:
+		return false, err
 	}
 
-	return result.Val() == 1
+	return result.Val() == 1, nil
 }
 
-func (delivery *wrapDelivery) Reject() bool {
+func (delivery *wrapDelivery) Reject() (ok bool, err error) {
 	return delivery.move(delivery.rejectedKey)
 }
 
-func (delivery *wrapDelivery) Push() bool {
+func (delivery *wrapDelivery) Push() (ok bool, err error) {
 	if delivery.pushKey != "" {
 		return delivery.move(delivery.pushKey)
 	} else {
@@ -61,15 +65,23 @@ func (delivery *wrapDelivery) Push() bool {
 	}
 }
 
-func (delivery *wrapDelivery) move(key string) bool {
-	if redisErrIsNil(delivery.redisClient.LPush(key, delivery.payload)) {
-		return false
+func (delivery *wrapDelivery) move(key string) (ok bool, err error) {
+	switch err = redisErr(delivery.redisClient.LPush(key, delivery.payload)); err {
+	case nil:
+	case redis.Nil:
+		return false, nil
+	default:
+		return false, err
 	}
 
-	if redisErrIsNil(delivery.redisClient.LRem(delivery.unackedKey, 1, delivery.payload)) {
-		return false
+	switch err := redisErr(delivery.redisClient.LRem(delivery.unackedKey, 1, delivery.payload)); err {
+	case nil:
+	case redis.Nil:
+		return false, nil
+	default:
+		return false, err
 	}
 
 	// debug(fmt.Sprintf("delivery rejected %s", delivery)) // COMMENTOUT
-	return true
+	return true, nil
 }
