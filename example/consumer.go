@@ -49,8 +49,12 @@ func (consumer *Consumer) Consume(delivery rmq.Delivery) {
 	}
 	time.Sleep(time.Millisecond)
 	if consumer.count%batchSize == 0 {
-		delivery.Reject()
+		if !delivery.Reject() {
+			log.Printf("failed to reject")
+		}
 	} else {
-		delivery.Ack()
+		if !delivery.Ack() {
+			log.Printf("failed to ack")
+		}
 	}
 }
