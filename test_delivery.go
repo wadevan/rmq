@@ -1,6 +1,9 @@
 package rmq
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"sync"
+)
 
 type TestDelivery struct {
 	State   State
@@ -24,6 +27,9 @@ func NewTestDeliveryString(payload string) *TestDelivery {
 	return &TestDelivery{
 		payload: payload,
 	}
+}
+
+func (delivery *TestDelivery) setWg(wg *sync.WaitGroup) {
 }
 
 func (delivery *TestDelivery) Payload() string {

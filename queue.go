@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/adjust/uniuri"
@@ -55,6 +56,8 @@ type redisQueue struct {
 	prefetchLimit    int           // max number of prefetched deliveries number of unacked can go up to prefetchLimit + numConsumers
 	pollDuration     time.Duration
 	consumingStopped bool
+
+	consumeMutex *sync.RWMutex
 }
 
 func newQueue(name, connectionName, queuesKey string, redisClient *redis.Client) *redisQueue {
@@ -230,12 +233,16 @@ func (queue *redisQueue) StartConsuming(prefetchLimit int, pollDuration time.Dur
 	queue.prefetchLimit = prefetchLimit
 	queue.pollDuration = pollDuration
 	queue.deliveryChan = make(chan Delivery, prefetchLimit)
+	queue.consumeMutex = &sync.RWMutex{}
 	// log.Printf("rmq queue started consuming %s %d %s", queue, prefetchLimit, pollDuration)
 	go queue.consume()
 	return true
 }
 
 func (queue *redisQueue) StopConsuming() bool {
+	queue.consumeMutex.RLock()
+	defer queue.consumeMutex.RUnlock()
+
 	if queue.deliveryChan == nil || queue.consumingStopped {
 		return false // not consuming or already stopped
 	}
@@ -257,7 +264,8 @@ func (queue *redisQueue) AddConsumer(tag string, consumer Consumer) (name string
 // AddBatchConsumer is similar to AddConsumer, but for batches of deliveries
 func (queue *redisQueue) AddBatchConsumer(tag string, batchSize int, consumer BatchConsumer) string {
 	name := queue.addConsumer(tag)
-	go queue.consumerBatchConsume(batchSize, consumer)
+	context := NewConsumerContext() // TODO: return
+	go queue.consumerBatchConsume(batchSize, consumer, context)
 	return name
 }
 
@@ -350,22 +358,30 @@ func (queue *redisQueue) consumeBatch(batchSize int) bool {
 
 func (queue *redisQueue) consumerConsume(consumer Consumer, context *ConsumerContext) {
 	for {
+		queue.consumeMutex.RLock()
 		select {
-		case delivery := <-queue.deliveryChan:
-			// debug(fmt.Sprintf("consumer consume %s %s", delivery, consumer)) // COMMENTOUT
-			consumer.Consume(delivery)
 		case <-context.StopChan:
 			// debug(fmt.Sprintf("consumer stopped %s", consumer)) // COMMENTOUT
 			return
+		case delivery := <-queue.deliveryChan:
+			context.Wg.Add(1)
+			log.Printf("wg add %p", context.Wg)
+			delivery.setWg(context.Wg)
+			// debug(fmt.Sprintf("consumer consume %s %s", delivery, consumer)) // COMMENTOUT
+			consumer.Consume(delivery)
 		}
+		queue.consumeMutex.RUnlock()
 	}
 }
 
-func (queue *redisQueue) consumerBatchConsume(batchSize int, consumer BatchConsumer) {
+func (queue *redisQueue) consumerBatchConsume(batchSize int, consumer BatchConsumer, context *ConsumerContext) {
 	batch := []Delivery{}
 	waitUntil := time.Now().UTC().Add(time.Second)
 
 	for delivery := range queue.deliveryChan {
+		context.Wg.Add(1)
+		log.Printf("wg add %p", context.Wg)
+		delivery.setWg(context.Wg)
 		batch = append(batch, delivery)
 		now := time.Now().UTC()
 		// debug(fmt.Sprintf("batch consume added delivery %d", len(batch))) // COMMENTOUT
