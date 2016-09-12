@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/adjust/backend-vendor/gopkg.in/redis.v3"
 	"github.com/adjust/uniuri"
-	"gopkg.in/redis.v3"
 )
 
 const (
@@ -363,13 +363,19 @@ func (queue *redisQueue) consumerConsume(consumer Consumer) {
 func (queue *redisQueue) consumerBatchConsume(batchSize int, timeout time.Duration, consumer BatchConsumer) {
 	batch := []Delivery{}
 	timer := time.NewTimer(timeout)
-	stopTimer(timer) // timer not active yet
+	// timer not active yet
+	if !timer.Stop() {
+		<-timer.C
+	}
 
 	for {
 		select {
 		case <-timer.C:
 			// debug("batch timer fired") // COMMENTOUT
 			// consume batch below
+			// debug(fmt.Sprintf("batch consume consume %d", len(batch))) // COMMENTOUT
+			consumer.Consume(batch)
+			batch = batch[:0] // reset batch
 
 		case delivery, ok := <-queue.deliveryChan:
 			if !ok {
@@ -384,30 +390,19 @@ func (queue *redisQueue) consumerBatchConsume(batchSize int, timeout time.Durati
 				timer.Reset(timeout) // set timer to fire
 			}
 
-			if len(batch) < batchSize {
+			if len(batch) >= batchSize {
 				// debug(fmt.Sprintf("batch consume wait %d < %d", len(batch), batchSize)) // COMMENTOUT
+				consumer.Consume(batch)
+				batch = batch[:0] // reset batch
+				if !timer.Stop() {
+					<-timer.C
+				}
 				continue
 			}
 
 			// consume batch below
 		}
 
-		// debug(fmt.Sprintf("batch consume consume %d", len(batch))) // COMMENTOUT
-		consumer.Consume(batch)
-
-		batch = batch[:0] // reset batch
-		stopTimer(timer)  // stop and drain the timer if it fired in between
-	}
-}
-
-func stopTimer(timer *time.Timer) {
-	if timer.Stop() {
-		return
-	}
-
-	select {
-	case <-timer.C:
-	default:
 	}
 }
 
