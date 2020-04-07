@@ -3,7 +3,7 @@ package main
 import (
 	"time"
 
-	"github.com/adjust/rmq"
+	"github.com/wadevan/rmq"
 )
 
 func main() {
