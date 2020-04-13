@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"log"
+	"github.com/phuslu/log"
 	"net/http"
 
 	"github.com/wadevan/rmq"

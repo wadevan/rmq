@@ -2,7 +2,7 @@ package rmq
 
 import (
 	"fmt"
-	"log"
+	"github.com/phuslu/log"
 	"strings"
 	"time"
 
@@ -51,7 +51,7 @@ func openConnectionWithRedisClient(tag string, redisClient RedisClient) *redisCo
 	}
 
 	if !connection.updateHeartbeat() { // checks the connection
-		log.Panicf("rmq connection failed to update heartbeat %s", connection)
+		log.Fatal().Msgf("rmq connection failed to update heartbeat %s", connection)
 	}
 
 	// add to connection set after setting heartbeat to avoid race with cleaner

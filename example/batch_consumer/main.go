@@ -1,7 +1,7 @@
 package main
 
 import (
-	"log"
+	"github.com/phuslu/log"
 	"time"
 
 	"github.com/wadevan/rmq"

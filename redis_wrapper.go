@@ -1,7 +1,7 @@
 package rmq
 
 import (
-	"log"
+	"github.com/phuslu/log"
 	"time"
 
 	"github.com/go-redis/redis"
@@ -93,7 +93,7 @@ func checkErr(err error) (ok bool) {
 	case redis.Nil:
 		return false
 	default:
-		log.Panicf("rmq redis error is not nil %s", err)
+		log.Error().Err(err).Msgf("rmq redis error is not nil %s", err)
 		return false
 	}
 }
