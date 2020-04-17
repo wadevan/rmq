@@ -7,6 +7,6 @@ require (
 	github.com/go-redis/redis v6.15.7+incompatible
 	github.com/onsi/ginkgo v1.12.0 // indirect
 	github.com/onsi/gomega v1.9.0 // indirect
-	github.com/phuslu/log v1.0.11
+	github.com/phuslu/log v1.0.12-0.20200417102906-edfc4983de97
 
 )
