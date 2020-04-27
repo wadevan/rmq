@@ -34,7 +34,7 @@ func (client *TestRedisClient) Set(key string, value string, expiration time.Dur
 
 	//0.0 expiration means that the value won't expire
 	if expiration.Seconds() != 0.0 {
-		//Store the unix time at which we should delete this
+		//redisStore the unix time at which we should delete this
 		client.ttl.Store(key, time.Now().Add(expiration).Unix())
 	}
 

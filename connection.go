@@ -51,7 +51,7 @@ func openConnectionWithRedisClient(tag string, redisClient RedisClient) *redisCo
 	}
 
 	if !connection.updateHeartbeat() { // checks the connection
-		log.Fatal().Msgf("rmq connection failed to update heartbeat %s", connection)
+		log.Error().Msgf("rmq connection failed to update heartbeat %s", connection)
 	}
 
 	// add to connection set after setting heartbeat to avoid race with cleaner

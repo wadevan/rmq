@@ -11,15 +11,15 @@ import (
 )
 
 const (
-	connectionsKey                   = "rmq::connections"                                           // Set of connection names
-	connectionHeartbeatTemplate      = "rmq::connection::{connection}::heartbeat"                   // expires after {connection} died
-	connectionQueuesTemplate         = "rmq::connection::{connection}::queues"                      // Set of queues consumers of {connection} are consuming
-	connectionQueueConsumersTemplate = "rmq::connection::{connection}::queue::[{queue}]::consumers" // Set of all consumers from {connection} consuming from {queue}
-	connectionQueueUnackedTemplate   = "rmq::connection::{connection}::queue::[{queue}]::unacked"   // List of deliveries consumers of {connection} are currently consuming
+	connectionsKey                   = "rmq:connections"                                       // Set of connection names
+	connectionHeartbeatTemplate      = "rmq:connection:{connection}:heartbeat"                 // expires after {connection} died
+	connectionQueuesTemplate         = "rmq:connection:{connection}:queues"                    // Set of queues consumers of {connection} are consuming
+	connectionQueueConsumersTemplate = "rmq:connection:{connection}:queue:[{queue}]:consumers" // Set of all consumers from {connection} consuming from {queue}
+	connectionQueueUnackedTemplate   = "rmq:connection:{connection}:queue:[{queue}]:unacked"   // List of deliveries consumers of {connection} are currently consuming
 
-	queuesKey             = "rmq::queues"                     // Set of all open queues
-	queueReadyTemplate    = "rmq::queue::[{queue}]::ready"    // List of deliveries in that {queue} (right is first and oldest, left is last and youngest)
-	queueRejectedTemplate = "rmq::queue::[{queue}]::rejected" // List of rejected deliveries from that {queue}
+	queuesKey             = "rmq:queues"                   // Set of all open queues
+	queueReadyTemplate    = "rmq:queue:[{queue}]:ready"    // List of deliveries in that {queue} (right is first and oldest, left is last and youngest)
+	queueRejectedTemplate = "rmq:queue:[{queue}]:rejected" // List of rejected deliveries from that {queue}
 
 	phConnection = "{connection}" // connection name
 	phQueue      = "{queue}"      // queue name
@@ -209,7 +209,7 @@ func (queue *redisQueue) StartConsuming(prefetchLimit int, pollDuration time.Dur
 
 	// add queue to list of queues consumed on this connection
 	if ok := queue.redisClient.SAdd(queue.queuesKey, queue.name); !ok {
-		log.Fatal().Msgf("rmq queue failed to start consuming %s", queue)
+		log.Error().Msgf("rmq queue failed to start consuming %s", queue)
 	}
 
 	queue.prefetchLimit = prefetchLimit
@@ -277,14 +277,14 @@ func (queue *redisQueue) RemoveConsumer(name string) bool {
 
 func (queue *redisQueue) addConsumer(tag string) string {
 	if queue.deliveryChan == nil {
-		log.Fatal().Msgf("rmq queue failed to add consumer, call StartConsuming first! %s", queue)
+		log.Error().Msgf("rmq queue failed to add consumer, call StartConsuming first! %s", queue)
 	}
 
 	name := fmt.Sprintf("%s-%s", tag, uniuri.NewLen(6))
 
 	// add consumer to list of consumers of this queue
 	if ok := queue.redisClient.SAdd(queue.consumersKey, name); !ok {
-		log.Fatal().Msgf("rmq queue failed to add consumer %s %s", queue, tag)
+		log.Error().Msgf("rmq queue failed to add consumer %s %s", queue, tag)
 	}
 
 	// log.Printf("rmq queue added consumer %s %s", queue, name)
